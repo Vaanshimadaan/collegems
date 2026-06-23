@@ -24,6 +24,7 @@ import { useState } from "react";
 import { useTheme } from "../context/ThemeContext";
 import { useNotifications } from "../hooks/useNotifications";
 import { formatDistanceToNow } from "date-fns";
+import { RecentHistorySection } from "../components/RecentHistorySection";
 
 export default function MainDashboard() {
   const navigate = useNavigate();
@@ -183,6 +184,62 @@ export default function MainDashboard() {
                     <div key={index} className="flex items-center justify-between p-3 rounded-lg border border-gray-100 dark:border-gray-700">
                       <span className="text-sm text-gray-700 dark:text-gray-300">{event.title}</span>
                       <span className={`text-xs font-medium px-2 py-1 rounded-full ${colors.bg} ${colors.text}`}>{event.date}</span>
+          <RecentHistorySection />
+
+          {/* Bottom Section */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-8">
+            {/* Notifications */}
+            <div className="lg:col-span-2">
+              <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                    <Bell className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+                    Important Notifications
+                  </h3>
+                  <button className="text-sm text-blue-600 hover:text-blue-700 font-medium">
+                    View All
+                  </button>
+                </div>
+                <div className="space-y-4">
+                  {notifications.length > 0 ? (
+                    notifications.map((notif) => {
+                      const isDanger = notif.type === "danger";
+                      return (
+                        <div
+                          key={notif._id}
+                          onClick={() => !notif.isRead && markAsRead(notif._id)}
+                          className={`flex items-start gap-4 p-4 rounded-lg border transition-colors cursor-pointer ${isDanger ? "border-red-200 bg-red-50 dark:bg-red-900/20" : "border-blue-200 bg-blue-50 dark:bg-blue-900/20"} ${!notif.isRead ? "shadow-sm" : "opacity-70"}`}
+                        >
+                          <div
+                            className={`p-2 rounded-lg ${isDanger ? "bg-red-100 text-red-600" : "bg-blue-100 text-blue-600"}`}
+                          >
+                            <AlertCircle className="w-5 h-5" />
+                          </div>
+                          <div className="flex-1">
+                            <div className="flex items-start justify-between">
+                              <div>
+                                <h4
+                                  className={`font-medium ${isDanger ? "text-red-800" : "text-blue-800"}`}
+                                >
+                                  {notif.message}
+                                </h4>
+                              </div>
+                              <span
+                                className={`text-xs font-medium px-2 py-1 rounded-full ${isDanger ? "bg-red-100 text-red-700" : "bg-blue-100 text-blue-700"}`}
+                              >
+                                {formatDistanceToNow(
+                                  new Date(notif.createdAt),
+                                  { addSuffix: true },
+                                )}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <div className="text-center py-6 text-gray-500">
+                      No new notifications right now.
                     </div>
                   );
                 })}

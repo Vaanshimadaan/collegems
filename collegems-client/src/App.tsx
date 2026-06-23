@@ -3,8 +3,13 @@ import Login from "./pages/auth/Login";
 import Register from "./pages/auth/Register";
 import RoleRoute from "./routes/RoleRoute";
 import ProtectedRoute from "./routes/ProtectedRoute";
+import BulkFieldReset from "./hod-components/BulkFieldReset";
 
+import TimeTable from "./user-components/TimeTable";
 import StudentDashboard from "./pages/StudentDashboard";
+//import TimeTable from "./user-components/TimeTable";
+
+//import StudentDashboard from "./pages/StudentDashboard";
 import TeacherDashboard from "./pages/TeacherDashboard";
 import HodDashboard from "./pages/HODDashboard";
 import MainDashboard from "./pages/MainDashboard";
@@ -21,10 +26,32 @@ import ExaminationFormPage from "./pages/ExaminationFormPage";
 import TimeTable from "./user-components/TimeTable";
 
 import DashboardLayout from "./layouts/DashboardLayout";
+import LostFoundPortal from "./pages/LostFoundPortal";
+import VerifyStudent from "./pages/VerifyStudent";
+import RiskDashboard from "./pages/RiskDashboard";
+
+
+import Library from "./common-components-management/Library";
+import ExamHalls from "./hod-components/ExamHalls";
+import HallAllocation from "./hod-components/HallAllocation";
+import StudentSeatView from "./user-components/StudentSeatView";
+import AuditLogs from "./hod-components/AuditLogs";
+import ResourceBooking from "./user-components/ResourceBooking";
+import BookingManagement from "./hod-components/BookingManagement";
+import ResourceManagement from "./hod-components/ResourceManagement";
+import AnnouncementForm from "./common-components-management/AnnouncementForm";
+import AnnouncementManage from "./common-components-management/AnnouncementManage";
+
+import { PwaManager } from "./components/PwaManager";
+import BackToTop from "./components/BackToTop";
+import SessionTimeoutWarning from "./components/SessionTimeoutWarning";
 
 export default function App() {
   return (
     <BrowserRouter>
+      <PwaManager />
+      <BackToTop />
+      <SessionTimeoutWarning timeoutMinutes={30} warningMinutes={5} />
       <Routes>
 
         {/* Public routes */}
@@ -84,6 +111,60 @@ export default function App() {
           element={<RoleRoute role="hod"><ReportGenerator /></RoleRoute>}
         />
 
+        <Route
+          path="/hod/hall-allocation"
+          element={
+            <RoleRoute role="hod">
+              <HallAllocation />
+            </RoleRoute>
+          }
+        />
+
+        <Route
+          path="/hod/audit-logs"
+          element={
+            <RoleRoute role="hod">
+              <AuditLogs />
+            </RoleRoute>
+          }
+        />
+
+        <Route
+          path="/hod/manage-bookings"
+          element={
+            <RoleRoute role="hod">
+              <BookingManagement />
+            </RoleRoute>
+          }
+        />
+
+        <Route
+          path="/hod/manage-resources"
+          element={
+            <RoleRoute role="hod">
+              <ResourceManagement />
+            </RoleRoute>
+          }
+        />
+    
+      <Route
+  path="/hod/bulk-reset"
+  element={
+    <RoleRoute role="hod">
+      <BulkFieldReset />
+    </RoleRoute>
+  }
+/>
+     
+
+        <Route
+          path="/parent/dashboard"
+          element={
+            <RoleRoute role="parent">
+              <ParentDashboard />
+            </RoleRoute>
+          }
+        />
       </Routes>
     </BrowserRouter>
   );
