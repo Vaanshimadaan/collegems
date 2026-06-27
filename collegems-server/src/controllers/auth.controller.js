@@ -1,37 +1,27 @@
 import User from "../models/User.model.js";
 import { hashPassword, comparePassword } from "../utils/hashPassword.js";
-import jwt from "jsonwebtoken";
 import { logAction } from "../utils/auditService.js";
 import { checkPotentialDuplicates } from "../services/duplicateDetection.service.js";
+import {
+  generateAccessToken,
+  generateRefreshToken,
+  hashRefreshToken,
+  verifyRefreshToken
+} from "../utils/token.service.js";
+import {
+  createSession,
+  revokeSession,
+  revokeAllSessions,
+  findSession,
+  rotateSession
+} from "../utils/session.service.js";
+import RefreshToken from "../models/RefreshToken.model.js";
+
 const COLLEGE_DOMAIN = process.env.COLLEGE_DOMAIN || "";
 
 const normalizeEmail = (email) => email?.trim().toLowerCase();
 
 const escapeRegExp = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-
-const generateAccessToken = (user) =>
-  jwt.sign(
-    {
-      id: String(user._id),
-      role: user.role,
-      course: user.course || null,
-      semester: user.semester || null,
-      department: user.department || null,
-    },
-    process.env.JWT_SECRET,
-    {
-      expiresIn: "2h",
-    }
-  );
-
-const generateRefreshToken = (user) =>
-  jwt.sign(
-    { id: String(user._id), role: user.role },
-    process.env.JWT_REFRESH_SECRET,
-    {
-      expiresIn: "7d",
-    }
-  );
 
 export const register = async (req, res) => {
   try {
@@ -149,6 +139,17 @@ export const register = async (req, res) => {
     const accessToken = generateAccessToken(user);
     const refreshToken = generateRefreshToken(user);
 
+    // Save session in database
+    const tokenHash = hashRefreshToken(refreshToken);
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+    await createSession({
+      userId: user._id,
+      tokenHash,
+      deviceInfo: req.deviceInfo,
+      ipAddress: req.ipAddress,
+      expiresAt,
+    });
+
     res.cookie("refreshToken", refreshToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
@@ -200,6 +201,17 @@ export const login = async (req, res) => {
     const accessToken = generateAccessToken(user);
     const refreshToken = generateRefreshToken(user);
 
+    // Hash refresh token & create DB session
+    const tokenHash = hashRefreshToken(refreshToken);
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+    await createSession({
+      userId: user._id,
+      tokenHash,
+      deviceInfo: req.deviceInfo,
+      ipAddress: req.ipAddress,
+      expiresAt,
+    });
+
     res.cookie("refreshToken", refreshToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
@@ -245,23 +257,66 @@ export const refresh = async (req, res) => {
       return res.status(401).json({ message: "Refresh token missing" });
     }
 
-    jwt.verify(
-      refreshToken,
-      process.env.JWT_REFRESH_SECRET,
-      async (err, decoded) => {
-        if (err) {
-          return res.status(403).json({ message: "Invalid refresh token" });
-        }
+    let decoded;
+    try {
+      decoded = verifyRefreshToken(refreshToken);
+    } catch (err) {
+      return res.status(403).json({ message: "Invalid refresh token" });
+    }
 
-        const user = await User.findById(decoded.id);
-        if (!user) {
-          return res.status(401).json({ message: "User not found" });
-        }
+    const tokenHash = hashRefreshToken(refreshToken);
+    const session = await findSession(tokenHash);
 
-        const accessToken = generateAccessToken(user);
-        res.json({ accessToken });
-      }
-    );
+    if (!session) {
+      return res.status(401).json({ message: "Session not found or expired" });
+    }
+
+    // Token Reuse Detection
+    if (session.isRevoked) {
+      // Revoke all sessions for this user
+      await revokeAllSessions(session.user);
+      res.clearCookie("refreshToken", {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "strict",
+      });
+      return res.status(401).json({ message: "Token has been revoked/reused" });
+    }
+
+    // Expiry check
+    if (session.expiresAt && session.expiresAt < new Date()) {
+      return res.status(401).json({ message: "Session expired" });
+    }
+
+    const user = await User.findById(decoded.id);
+    if (!user) {
+      return res.status(401).json({ message: "User not found" });
+    }
+
+    // Generate new tokens
+    const newAccessToken = generateAccessToken(user);
+    const newRefreshToken = generateRefreshToken(user);
+
+    // Rotate session: create new session, mark old session as revoked
+    const newExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+    const newTokenHash = hashRefreshToken(newRefreshToken);
+    
+    await rotateSession({
+      oldTokenHash: tokenHash,
+      newTokenHash,
+      newExpiresAt,
+      deviceInfo: req.deviceInfo,
+      ipAddress: req.ipAddress,
+    });
+
+    res.cookie("refreshToken", newRefreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    });
+
+    res.json({ accessToken: newAccessToken });
   } catch (err) {
     console.error("Refresh error:", err);
     res.status(500).json({ message: "Server error" });
@@ -270,6 +325,12 @@ export const refresh = async (req, res) => {
 
 export const logout = async (req, res) => {
   try {
+    const refreshToken = req.cookies?.refreshToken;
+    if (refreshToken) {
+      const tokenHash = hashRefreshToken(refreshToken);
+      await revokeSession(tokenHash);
+    }
+
     res.clearCookie("refreshToken", {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
@@ -278,6 +339,81 @@ export const logout = async (req, res) => {
     res.json({ message: "Logged out successfully" });
   } catch (err) {
     console.error("Logout error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+export const getSessions = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const sessions = await RefreshToken.find({
+      user: userId,
+      isRevoked: false,
+      expiresAt: { $gt: new Date() },
+    });
+
+    const refreshToken = req.cookies?.refreshToken;
+    const currentTokenHash = refreshToken ? hashRefreshToken(refreshToken) : null;
+
+    const formattedSessions = sessions.map((session) => ({
+      id: session._id,
+      deviceInfo: session.deviceInfo || { browser: "Unknown", os: "Unknown", device: "Unknown" },
+      ipAddress: session.ipAddress || "Unknown",
+      lastUsedAt: session.lastUsedAt || session.createdAt,
+      expiresAt: session.expiresAt,
+      isCurrent: currentTokenHash === session.token,
+    }));
+
+    res.json(formattedSessions);
+  } catch (err) {
+    console.error("Get sessions error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+export const logoutAll = async (req, res) => {
+  try {
+    await revokeAllSessions(req.user.id);
+    res.clearCookie("refreshToken", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+    });
+    res.json({ message: "Logged out from all sessions successfully" });
+  } catch (err) {
+    console.error("Logout all error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+export const deleteSession = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const session = await RefreshToken.findOne({ _id: id, user: req.user.id });
+
+    if (!session) {
+      return res.status(404).json({ message: "Session not found" });
+    }
+
+    session.isRevoked = true;
+    await session.save();
+
+    // Clear cookie if current session was revoked
+    const refreshToken = req.cookies?.refreshToken;
+    if (refreshToken) {
+      const tokenHash = hashRefreshToken(refreshToken);
+      if (session.token === tokenHash) {
+        res.clearCookie("refreshToken", {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === "production",
+          sameSite: "strict",
+        });
+      }
+    }
+
+    res.json({ message: "Session revoked successfully" });
+  } catch (err) {
+    console.error("Delete session error:", err);
     res.status(500).json({ message: "Server error" });
   }
 };

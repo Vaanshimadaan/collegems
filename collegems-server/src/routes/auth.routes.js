@@ -1,13 +1,27 @@
 import express from "express";
-import { register, login, refresh, logout } from "../controllers/auth.controller.js";
+import {
+  register,
+  login,
+  refresh,
+  logout,
+  getSessions,
+  logoutAll,
+  deleteSession,
+} from "../controllers/auth.controller.js";
 import { validateRegister } from "../middlewares/validation.middleware.js";
 import { loginLimiter, registerLimiter } from "../middlewares/rateLimit.middleware.js";
+import { detectDevice } from "../middlewares/session.middleware.js";
+import { authenticate } from "../middlewares/auth.middleware.js";
 
 const router = express.Router();
 
-router.post("/register", registerLimiter, validateRegister, register);
-router.post("/login", loginLimiter, login);
-router.post("/refresh", refresh);
+router.post("/register", registerLimiter, detectDevice, validateRegister, register);
+router.post("/login", loginLimiter, detectDevice, login);
+router.post("/refresh", detectDevice, refresh);
 router.post("/logout", logout);
+
+router.get("/sessions", authenticate, getSessions);
+router.post("/logout-all", authenticate, logoutAll);
+router.delete("/sessions/:id", authenticate, deleteSession);
 
 export default router;
