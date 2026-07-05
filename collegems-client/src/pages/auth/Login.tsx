@@ -65,7 +65,7 @@ export default function Login() {
     { role: "Teacher", icon: BookOpen, color: "amber" },
     { role: "Parent", icon: Users, color: "purple" },
     { role: "HOD", icon: Shield, color: "emerald" },
-    { role: "Parent", icon: Users, color: "purple" },
+    
   ];
 
   return (
