@@ -80,7 +80,7 @@ import ResourceBooking from "../user-components/ResourceBooking";
 import AnnouncementsView from "../user-components/AnnouncementsView";
 import SemesterComparison from "../user-components/SemesterComparison";
 import UserWorkflows from "../user-components/UserWorkflows";
-import StudentAnalyticsWidget from "../components/AnalyticsWidgets/StudentAnalyticsWidget";
+import StudentQuizList from "../user-components/StudentQuizList";
 
 // HOD Components
 import Teachers from "../hod-components/Teachers";
@@ -112,7 +112,8 @@ type TabType =
   | "semester-comparison"
   | "user-workflows"
   | "settings"
-  | "grade-trend";
+  | "grade-trend"
+  | "online-exams";
 
 const navigationItems: {
   id: TabType;
@@ -144,6 +145,7 @@ const navigationItems: {
   { id: "book-resources", label: "Book Resources", icon: CalendarDays },
   { id: "user-workflows", label: "My Workflows", icon: FileText },
   { id: "grade-trend", label: "Grade Trend", icon: BarChart },
+  { id: "online-exams", label: "Online Exams", icon: FileText },
 ];
 
 export default function StudentDashboard() {
@@ -762,7 +764,7 @@ export default function StudentDashboard() {
               {activeTab === "book-resources" && <ResourceBooking />}
               {activeTab === "placement" && <PlacementEligibility />}
               {activeTab === "user-workflows" && <UserWorkflows />}
-              {activeTab === "grade-trend" && <StudentAnalyticsWidget studentId={student?._id || ""} />}
+              {activeTab === "online-exams" && <StudentQuizList />}
 
               {activeTab === "settings" && (
                 <div className="text-sm text-gray-600 dark:text-gray-400">

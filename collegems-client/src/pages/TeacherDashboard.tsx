@@ -43,19 +43,7 @@ import AttendanceAlertsWidget from "../teacher-components/AttendanceAlertsWidget
 import UserWorkflows from "../user-components/UserWorkflows";
 import ThemeSwitcher from "../components/ThemeSwitcher";
 import TeacherProfile from "../teacher-components/TeacherProfile";
-import TeacherAnalyticsWidget from "../components/AnalyticsWidgets/TeacherAnalyticsWidget";
-
-// Import Skeleton Components
-import {
-  SkeletonText,
-  SkeletonCard,
-  SkeletonStatsCard,
-  SkeletonList,
-  SkeletonActivityFeed,
-} from "../common-components-management/SkeletonLoader";
-
-// Import Loading Hook
-import useLoading from "../hooks/useLoading";
+import QuizCreator from "../teacher-components/QuizCreator";
 
 interface TeacherDashboardProps {
   initialTab?: string;
@@ -151,6 +139,7 @@ export default function TeacherDashboard({ initialTab }: TeacherDashboardProps) 
     { id: "class-performance", label: "Class Performance", icon: BarChart3 },
     { id: "risk-dashboard", label: "Predictive Analytics", icon: LayoutDashboard },
     { id: "user-workflows", label: "My Workflows", icon: FileText },
+    { id: "quizzes", label: "Quizzes & Exams", icon: ClipboardCheck },
   ];
 
   const activeTabLabel = activeTab === "settings" ? "Settings"
@@ -551,6 +540,7 @@ export default function TeacherDashboard({ initialTab }: TeacherDashboardProps) 
           {activeTab === "class-performance" && <TeacherAnalyticsWidget />}
           {activeTab === "risk-dashboard" && <RiskDashboard />}
           {activeTab === "user-workflows" && <UserWorkflows />}
+          {activeTab === "quizzes" && <QuizCreator />}
           {activeTab === "announcements" && (
             <div className="space-y-8">
               <AnnouncementForm onSuccess={() => setRefreshAnnouncements((k) => k + 1)} />
